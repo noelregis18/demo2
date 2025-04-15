@@ -4,12 +4,16 @@ from dotenv import load_dotenv
 import os
 import json
 from datetime import datetime
-import random  # For demo purposes only
+import random
+import sys
+
+# Add the current directory to the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templates'))
 
 # Configure Gemini API
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
@@ -69,6 +73,76 @@ def scan_domain():
             'status': 'success',
             'scan_results': scan_results
         })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+@app.route('/batch', methods=['POST'])
+def batch_scan():
+    try:
+        # Check if the post has the file part
+        if 'file' not in request.files:
+            return jsonify({
+                'status': 'error',
+                'message': 'No file part'
+            }), 400
+            
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({
+                'status': 'error',
+                'message': 'No selected file'
+            }), 400
+            
+        if file and file.filename.endswith('.csv'):
+            # Process the CSV file
+            import csv
+            domains = []
+            csv_reader = csv.DictReader(file.stream.read().decode('utf-8').splitlines())
+            
+            for row in csv_reader:
+                if 'domain' in row:
+                    domains.append(row['domain'])
+            
+            if not domains:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'No domains found in the CSV file'
+                }), 400
+            
+            results = []
+            for domain in domains:
+                scan_results = generate_mock_scan_results(domain)
+                
+                # Use Gemini API to analyze results and provide risk summary
+                prompt = f"""Analyze this security scan data and provide a concise risk summary (under 100 characters):
+                {json.dumps(scan_results, indent=2)}
+                """
+                
+                try:
+                    ai_response = model.generate_content(prompt)
+                    scan_results['risk_summary'] = ai_response.text.strip()
+                except Exception as e:
+                    scan_results['risk_summary'] = "Analysis unavailable. Please review raw data."
+                
+                # Save the results to an output file
+                save_scan_results(scan_results)
+                results.append(scan_results)
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Successfully scanned {len(results)} domains',
+                'results': results
+            })
+        
+        return jsonify({
+            'status': 'error',
+            'message': 'File must be a CSV'
+        }), 400
+    
     except Exception as e:
         return jsonify({
             'status': 'error',
@@ -191,6 +265,24 @@ def generate_mock_scan_results(domain):
     }
     
     return report
+
+def save_scan_results(scan_results):
+    """Save scan results to an output file."""
+    # Create outputs directory if it doesn't exist
+    outputs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'outputs')
+    os.makedirs(outputs_dir, exist_ok=True)
+    
+    # Create a filename based on the domain and date
+    domain = scan_results['domain']
+    date = scan_results['scan_date'].replace('-', '')
+    filename = f"{domain}_{date}.json"
+    file_path = os.path.join(outputs_dir, filename)
+    
+    # Write the results to the file
+    with open(file_path, 'w') as f:
+        json.dump(scan_results, f, indent=2)
+    
+    return file_path
 
 if __name__ == '__main__':
     app.run(debug=True) 

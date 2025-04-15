@@ -1,0 +1,30 @@
+# GitHub Setup Instructions
+
+1. Create a new repository on GitHub:
+   - Go to https://github.com/new
+   - Enter "automated-attack-surface-monitoring" as repository name
+   - Add a description: "Automated Attack Surface Monitoring Tool with AI-Powered Risk Analysis"
+   - Choose "Public" or "Private" visibility
+   - Click "Create repository"
+
+2. Run the following commands in your terminal, replacing YOUR_USERNAME with your GitHub username:
+
+```powershell
+# Add the remote GitHub repository
+git remote add origin https://github.com/YOUR_USERNAME/automated-attack-surface-monitoring.git
+
+# Push your code to GitHub
+git push -u origin main
+```
+
+3. Enter your GitHub credentials when prompted.
+
+4. Your code is now available on GitHub at:
+   https://github.com/YOUR_USERNAME/automated-attack-surface-monitoring
+
+Additional Git commands:
+- Check remote status: `git remote -v`
+- View current branch: `git branch`
+- Create new branch: `git checkout -b new-feature-name`
+- Switch branches: `git checkout branch-name`
+- Pull latest changes: `git pull origin main` 

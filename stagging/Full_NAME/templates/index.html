@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attack Surface Monitoring Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-container, .results-container {
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        .message {
+            max-width: 80%;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-6">
+        <h1 class="text-3xl font-bold text-center mb-6">Automated Attack Surface Monitoring Tool</h1>
+        
+        <!-- Tab Navigation -->
+        <div class="flex mb-4 border-b">
+            <button id="tab-chat" class="px-4 py-2 mr-2 font-medium rounded-t-lg bg-white border-b-2 border-blue-500">Chat</button>
+            <button id="tab-scan" class="px-4 py-2 font-medium rounded-t-lg hover:bg-gray-50">Domain Scanner</button>
+            <button id="tab-batch" class="px-4 py-2 font-medium rounded-t-lg hover:bg-gray-50">Batch Scan</button>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div id="chat-tab" class="tab-content active bg-white rounded-lg shadow-lg p-6">
+            <div id="chat-messages" class="chat-container mb-4">
+                <!-- Messages will be added here -->
+            </div>
+            
+            <div class="flex gap-4">
+                <input type="text" id="user-input" 
+                       class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Type your message here...">
+                <button onclick="sendMessage()" 
+                        class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Send
+                </button>
+            </div>
+        </div>
+        
+        <!-- Domain Scanner Interface -->
+        <div id="scan-tab" class="tab-content bg-white rounded-lg shadow-lg p-6">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-4">Domain Scanner</h2>
+                <div class="flex gap-4">
+                    <input type="text" id="domain-input" 
+                           class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Enter domain (e.g., example.com)">
+                    <button id="scan-button" onclick="scanDomain()" 
+                            class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+                        Scan Domain
+                    </button>
+                </div>
+            </div>
+            
+            <div id="scan-status" class="hidden p-3 mb-4 bg-blue-100 rounded-lg">
+                <p class="text-blue-700 font-medium">Scanning in progress...</p>
+            </div>
+            
+            <div id="scan-results" class="results-container hidden">
+                <div class="mb-4 p-4 rounded-lg bg-gray-100">
+                    <div class="flex justify-between">
+                        <h3 class="text-lg font-bold" id="result-domain">example.com</h3>
+                        <div>
+                            <span class="font-medium">Risk Score: </span>
+                            <span id="result-risk-score" class="px-2 py-1 rounded-lg bg-red-500 text-white">85</span>
+                        </div>
+                    </div>
+                    <p class="mt-2"><span class="font-medium">Date: </span><span id="result-date">2023-04-10</span></p>
+                    <p class="mt-1"><span class="font-medium">Risk Summary: </span><span id="result-summary" class="text-red-600"></span></p>
+                </div>
+                
+                <div class="mb-4">
+                    <button class="w-full text-left bg-gray-200 p-2 rounded-t-lg font-medium" onclick="toggleSection('json-output')">Full JSON Output</button>
+                    <div id="json-output" class="hidden border p-4 rounded-b-lg bg-gray-50 overflow-x-auto">
+                        <pre id="json-content" class="text-sm"></pre>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <button class="w-full text-left bg-gray-200 p-2 rounded-t-lg font-medium" onclick="toggleSection('subdomains')">Subdomains</button>
+                    <div id="subdomains" class="hidden border p-4 rounded-b-lg">
+                        <ul id="subdomains-list" class="list-disc pl-5"></ul>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <button class="w-full text-left bg-gray-200 p-2 rounded-t-lg font-medium" onclick="toggleSection('tech-stack')">Technology Stack</button>
+                    <div id="tech-stack" class="hidden border p-4 rounded-b-lg">
+                        <ul id="tech-stack-list" class="list-disc pl-5"></ul>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <button class="w-full text-left bg-gray-200 p-2 rounded-t-lg font-medium" onclick="toggleSection('sensitive-paths')">Sensitive Paths</button>
+                    <div id="sensitive-paths" class="hidden border p-4 rounded-b-lg">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="py-2 px-4 text-left">Path</th>
+                                    <th class="py-2 px-4 text-left">Status</th>
+                                    <th class="py-2 px-4 text-left">Issue</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensitive-paths-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Batch Scan Interface -->
+        <div id="batch-tab" class="tab-content bg-white rounded-lg shadow-lg p-6">
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold mb-4">Batch Domain Scanner</h2>
+                <p class="mb-4 text-gray-600">Upload a CSV file with a column named "domain" containing the domains to scan.</p>
+                
+                <form id="batch-form" enctype="multipart/form-data" class="mb-4">
+                    <div class="flex items-center justify-between gap-4">
+                        <input type="file" id="csv-file" name="file" accept=".csv" 
+                               class="flex-1 p-2 border rounded-lg bg-white">
+                        <button type="button" onclick="batchScan()" 
+                                class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500">
+                            Start Batch Scan
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <div id="batch-status" class="hidden p-3 mb-4 bg-blue-100 rounded-lg">
+                <p class="text-blue-700 font-medium">Batch scan in progress...</p>
+            </div>
+            
+            <div id="batch-results" class="results-container hidden">
+                <div class="mb-4 p-4 rounded-lg bg-gray-100">
+                    <h3 class="text-lg font-bold mb-2">Batch Scan Results</h3>
+                    <p id="batch-summary" class="text-gray-700">Scanned 5 domains. 2 high risk, 2 medium risk, 1 low risk.</p>
+                </div>
+                
+                <div id="batch-domains" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chat functionality
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+
+        function addMessage(message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'ml-auto bg-blue-500 text-white' : 'bg-gray-200'} p-3 rounded-lg mb-4`;
+            messageDiv.textContent = message;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, true);
+            userInput.value = '';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message }),
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    addMessage(data.response);
+                } else {
+                    addMessage('Error: ' + data.message);
+                }
+            } catch (error) {
+                addMessage('Error: Could not connect to the server');
+            }
+        }
+
+        // Allow sending message with Enter key
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Domain scanner functionality
+        async function scanDomain() {
+            const domain = document.getElementById('domain-input').value.trim();
+            if (!domain) {
+                alert('Please enter a domain to scan');
+                return;
+            }
+            
+            // Show scanning status
+            document.getElementById('scan-status').classList.remove('hidden');
+            document.getElementById('scan-results').classList.add('hidden');
+            document.getElementById('scan-button').disabled = true;
+            
+            try {
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ domain }),
+                });
+
+                const data = await response.json();
+                
+                // Hide scanning status
+                document.getElementById('scan-status').classList.add('hidden');
+                document.getElementById('scan-button').disabled = false;
+                
+                if (data.status === 'success') {
+                    displayScanResults(data.scan_results);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                document.getElementById('scan-status').classList.add('hidden');
+                document.getElementById('scan-button').disabled = false;
+                alert('Error: Could not connect to the server');
+            }
+        }
+        
+        function displayScanResults(results) {
+            // Show results container
+            document.getElementById('scan-results').classList.remove('hidden');
+            
+            // Update header summary
+            document.getElementById('result-domain').textContent = results.domain;
+            document.getElementById('result-date').textContent = results.scan_date;
+            document.getElementById('result-risk-score').textContent = results.risk_score;
+            
+            // Set risk score color
+            const riskScoreEl = document.getElementById('result-risk-score');
+            if (results.risk_score >= 70) {
+                riskScoreEl.className = 'px-2 py-1 rounded-lg bg-red-500 text-white';
+            } else if (results.risk_score >= 40) {
+                riskScoreEl.className = 'px-2 py-1 rounded-lg bg-yellow-500 text-white';
+            } else {
+                riskScoreEl.className = 'px-2 py-1 rounded-lg bg-green-500 text-white';
+            }
+            
+            document.getElementById('result-summary').textContent = results.risk_summary;
+            
+            // Update JSON output
+            document.getElementById('json-content').textContent = JSON.stringify(results, null, 2);
+            
+            // Update subdomains list
+            const subdomainsList = document.getElementById('subdomains-list');
+            subdomainsList.innerHTML = '';
+            results.subdomains.forEach(subdomain => {
+                const li = document.createElement('li');
+                li.textContent = subdomain;
+                subdomainsList.appendChild(li);
+            });
+            
+            // Update tech stack list
+            const techStackList = document.getElementById('tech-stack-list');
+            techStackList.innerHTML = '';
+            results.tech_stack.forEach(tech => {
+                const li = document.createElement('li');
+                li.textContent = tech;
+                techStackList.appendChild(li);
+            });
+            
+            // Update sensitive paths table
+            const sensitivePathsList = document.getElementById('sensitive-paths-list');
+            sensitivePathsList.innerHTML = '';
+            results.sensitive_paths.forEach(path => {
+                const tr = document.createElement('tr');
+                
+                const pathTd = document.createElement('td');
+                pathTd.className = 'py-2 px-4 border-b';
+                pathTd.textContent = path.path;
+                
+                const statusTd = document.createElement('td');
+                statusTd.className = 'py-2 px-4 border-b';
+                statusTd.textContent = path.status_code;
+                
+                const issueTd = document.createElement('td');
+                issueTd.className = 'py-2 px-4 border-b';
+                issueTd.textContent = path.issue;
+                
+                tr.appendChild(pathTd);
+                tr.appendChild(statusTd);
+                tr.appendChild(issueTd);
+                
+                sensitivePathsList.appendChild(tr);
+            });
+        }
+        
+        // Batch scan functionality
+        async function batchScan() {
+            const fileInput = document.getElementById('csv-file');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            if (!file.name.endsWith('.csv')) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            // Show batch scanning status
+            document.getElementById('batch-status').classList.remove('hidden');
+            document.getElementById('batch-results').classList.add('hidden');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/batch', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                // Hide batch scanning status
+                document.getElementById('batch-status').classList.add('hidden');
+                
+                if (data.status === 'success') {
+                    displayBatchResults(data.results);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                document.getElementById('batch-status').classList.add('hidden');
+                alert('Error: Could not connect to the server');
+            }
+        }
+        
+        function displayBatchResults(results) {
+            // Show batch results container
+            document.getElementById('batch-results').classList.remove('hidden');
+            
+            // Count risk levels
+            const highRisk = results.filter(r => r.risk_score >= 70).length;
+            const mediumRisk = results.filter(r => r.risk_score >= 40 && r.risk_score < 70).length;
+            const lowRisk = results.filter(r => r.risk_score < 40).length;
+            
+            // Update batch summary
+            document.getElementById('batch-summary').textContent = 
+                `Scanned ${results.length} domains. ${highRisk} high risk, ${mediumRisk} medium risk, ${lowRisk} low risk.`;
+            
+            // Display domains
+            const batchDomains = document.getElementById('batch-domains');
+            batchDomains.innerHTML = '';
+            
+            results.forEach(result => {
+                const domainCard = document.createElement('div');
+                domainCard.className = 'p-4 border rounded-lg shadow-sm';
+                
+                // Set border color based on risk
+                if (result.risk_score >= 70) {
+                    domainCard.classList.add('border-red-300');
+                } else if (result.risk_score >= 40) {
+                    domainCard.classList.add('border-yellow-300');
+                } else {
+                    domainCard.classList.add('border-green-300');
+                }
+                
+                const domainHeader = document.createElement('div');
+                domainHeader.className = 'flex justify-between items-center mb-2';
+                
+                const domainName = document.createElement('h4');
+                domainName.className = 'font-bold';
+                domainName.textContent = result.domain;
+                
+                const riskScore = document.createElement('span');
+                riskScore.className = 'px-2 py-1 rounded-lg text-white text-sm';
+                
+                // Set risk score color
+                if (result.risk_score >= 70) {
+                    riskScore.classList.add('bg-red-500');
+                } else if (result.risk_score >= 40) {
+                    riskScore.classList.add('bg-yellow-500');
+                } else {
+                    riskScore.classList.add('bg-green-500');
+                }
+                
+                riskScore.textContent = result.risk_score;
+                
+                domainHeader.appendChild(domainName);
+                domainHeader.appendChild(riskScore);
+                
+                const riskSummary = document.createElement('p');
+                riskSummary.className = 'text-sm text-gray-600';
+                riskSummary.textContent = result.risk_summary;
+                
+                domainCard.appendChild(domainHeader);
+                domainCard.appendChild(riskSummary);
+                
+                const viewDetailsButton = document.createElement('button');
+                viewDetailsButton.className = 'mt-2 text-sm text-blue-500 hover:underline';
+                viewDetailsButton.textContent = 'View Details';
+                viewDetailsButton.onclick = function() {
+                    // Display the results in the scan tab
+                    document.getElementById('tab-scan').click();
+                    displayScanResults(result);
+                };
+                
+                domainCard.appendChild(viewDetailsButton);
+                batchDomains.appendChild(domainCard);
+            });
+        }
+        
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            section.classList.toggle('hidden');
+        }
+        
+        // Tab switching functionality
+        document.getElementById('tab-chat').addEventListener('click', function() {
+            document.getElementById('chat-tab').classList.add('active');
+            document.getElementById('scan-tab').classList.remove('active');
+            document.getElementById('batch-tab').classList.remove('active');
+            document.getElementById('tab-chat').classList.add('border-b-2', 'border-blue-500', 'bg-white');
+            document.getElementById('tab-scan').classList.remove('border-b-2', 'border-blue-500', 'bg-white');
+            document.getElementById('tab-batch').classList.remove('border-b-2', 'border-blue-500', 'bg-white');
+        });
+        
+        document.getElementById('tab-scan').addEventListener('click', function() {
+            document.getElementById('chat-tab').classList.remove('active');
+            document.getElementById('scan-tab').classList.add('active');
+            document.getElementById('batch-tab').classList.remove('active');
+            document.getElementById('tab-chat').classList.remove('border-b-2', 'border-blue-500', 'bg-white');
+            document.getElementById('tab-scan').classList.add('border-b-2', 'border-blue-500', 'bg-white');
+            document.getElementById('tab-batch').classList.remove('border-b-2', 'border-blue-500', 'bg-white');
+        });
+        
+        document.getElementById('tab-batch').addEventListener('click', function() {
+            document.getElementById('chat-tab').classList.remove('active');
+            document.getElementById('scan-tab').classList.remove('active');
+            document.getElementById('batch-tab').classList.add('active');
+            document.getElementById('tab-chat').classList.remove('border-b-2', 'border-blue-500', 'bg-white');
+            document.getElementById('tab-scan').classList.remove('border-b-2', 'border-blue-500', 'bg-white');
+            document.getElementById('tab-batch').classList.add('border-b-2', 'border-blue-500', 'bg-white');
+        });
+        
+        // Domain input Enter key event
+        document.getElementById('domain-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                scanDomain();
+            }
+        });
+    </script>
+</body>
+</html> 
