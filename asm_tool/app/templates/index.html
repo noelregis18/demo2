@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Attack Surface Monitoring Tool</h2>
+                <form id="upload-form" class="mb-4">
+                    <div class="mb-3">
+                        <label for="csv-file" class="form-label">Upload CSV File</label>
+                        <input type="file" class="form-control" id="csv-file" accept=".csv" required>
+                        <div class="form-text">Upload a CSV file containing domain names to scan.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Start Scan</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">Scan Progress</h3>
+                <div id="scan-progress" class="d-none">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"></div>
+                    </div>
+                    <p id="current-domain" class="mb-2"></p>
+                    <p id="scan-status" class="mb-0"></p>
+                </div>
+                <div id="no-scan" class="text-center py-4">
+                    <p class="text-muted">No scan in progress</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title">Scan Results</h3>
+                <div id="results-container" class="d-none">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Risk Score</th>
+                                    <th>Subdomains</th>
+                                    <th>Open Ports</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="no-results" class="text-center py-4">
+                    <p class="text-muted">No results available</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal fade" id="resultsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detailed Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detailed-results"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
